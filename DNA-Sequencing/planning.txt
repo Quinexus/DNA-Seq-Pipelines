@@ -1,9 +1,5 @@
 DNA SEQUENCING PRACTICE PIPELINE
 
-using data on Pseudomonas aeruginosa PAO1
-Reference Genome from: https://www.ncbi.nlm.nih.gov/datasets/genome/GCF_000006765.1/
-Raw FASTA files from: https://www.ebi.ac.uk/ena/browser/view/PRJEB35620
-
 notes from lecture:
 Step 1: QC FASTQ files
 - module fastqc: to generate QC metrics
