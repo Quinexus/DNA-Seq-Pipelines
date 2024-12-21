@@ -5,124 +5,106 @@
 # 2. Align to genome
 # 3. Mark duplicates
 
-# Ask user whick step to process
-choice=''
-while [[ "$choice" != 'q' ]]
-do
+read1=$1
+read1name=$"${read1%.*}"
+read2=$2
+read2name=$"${read2%.*}"
+reference=$3
+cores=$4
+ramAllocation=$5
+known_sites=$6
 
-echo "\nWhich step do you want to start?"
-echo "Press 'a' to produce QC FASTQ files"
-echo "Press 'b' to align to genome"
-echo "Press 'c' to mark duplicates"
-echo "Press 'q' to quit"
-read choice
+# Create folder for DNA Sequencing
+if [ ! -d DNA_seq ]; then
+    mkdir DNA_seq
+fi
+cd DNA_seq
 
-# Step 1: QC FASTQ files
-if [[ $choice == 'a' ]]; then
-    # Load required modules: fastqc
-    echo "Loading fastqc and conda (make sure anaconda is installed)"
-    if command -v module >/dev/null 2>&1; then
-        module load fastqc
-        module load anaconda3
-        echo "module package found"
-    elif command -v fastqc >/dev/null 2>&1; then
-        echo "fastqc found"
-    else
-        echo "fastqc not found, installing fastqc"
-        sudo apt install -y fastqc
-    fi
-
-    echo "Files will be stored in directory QC"
-    mkdir QC
-
-    echo "Provide location to raw files:"
-    read raw_fasta_files
-
-    fastqc -o QC/ ${raw_fasta_files}*
-
-    echo "Loading conda environment to use multiqc"
-    conda create --name multiqc_env -c bioconda multiqc -y
-    source activate multiqc_env
-    multiqc QC/ -o QC
-    conda deactivate
-
-# Step 2: Align to genome
-elif [[ $choice == 'b' ]]; then
-    # Load required modules: bowtie2, samtools
-    echo "Loading required modules"
-    if command -v module >/dev/null 2>&1; then
-        module load bowtie2
-        module load samtools
-        echo "module package found"
-    elif command -v bowtie >/dev/null 2>&1 && command -v samtools >/dev/null 2>&1; then
-        echo "bowtie and samtools found"
-    else
-        echo "one or more packages not found"
-        echo "installing all packages"
-        conda create --name align_genome_env -c bioconda bowtie2 samtools -y
-        source activate align_genome_env
-    fi
-
-    echo "Add read 1 Raw FASTA:"
-    read fasta_raw1
-    echo "Add read 2 Raw FASTA:"
-    read fasta_raw2
-    echo "Add reference genome fasta:"
-    read reference_genome
-
-    mkdir Bowtie2Idx
-    bowtie2-build ${reference_genome} Bowtie2Idx/reference.108
-
-    mkdir Alignment
-    echo "Commencing Alignment (may take some time!)"q
-    time bowtie2 -p 2 \
-        -x Bowtie2Idx/reference.108 \
-        -1 ${fasta_raw1} \
-        -2 ${fasta_raw2} |
-        samtools sort -o Alignment/aligned.bam -
-    echo "Aligned bam stored as aligned.bam in Alignment folder" 
-    conda deactivate
-
-# Step 3: Mark duplicates
-elif [[ $choice == 'c' ]]; then
-    # Load required modules: gatk
-    if command -v module >/dev/null 2>&1; then
-        module load java
-        module load gatk
-        echo "module package found"
-    elif command -v gatk >/dev/null 2>&1; then
-        echo "gatk found"
-    else
-        echo "one or more packages not found"
-        echo "installing all packages"
-        conda create --name mark_duplicates_env -c bioconda gatk -y
-        source activate mark_duplicates_env
-    fi
-
-    mkdir Alignment
-    mkdir QC
-
-    echo "Load bam file, if empty will load from Alignment/aligned.bam"
-    read aligned_bam
-    if [-z $aligned_bam]; then
-        aligned_bam="Alignment/aligned.bam"
-    fi
-
-    echo "Marking Duplicates"
-    gatk --java-options "-Xmx1G" MarkDuplicates \
-        -I {$aligned_bam} \
-        -M QC/markedQC.marked \
-        -O Alignment/aligned.marked.bam
-
-    echo "Marked duplicates, markedQC.marked stored in QC folder, aligned.marked.bam stored in BAM folder"
-
-# Else
-else
-    if [[ $choice != 'q' ]]; then
-        echo "Invalid command"
-    fi
+# Create folder to store all logs
+if [ ! -d logs ]; then
+    mkdir logs
 fi
 
-done
+# 1. QC FASTA files
 
-echo "Finished"
+# Create folder for QC files
+if [ ! -d QC ]; then
+    mkdir QC
+fi
+
+# Generating FASTQC analysis
+if [ ! -f QC/multiqc_report.html ]; then
+    module load fastqc
+    module load anaconda3
+
+    conda create --namae multiqc -c bioconda multiqc -y
+    conda activate multiqc
+
+    {
+        fastqc -o QC/ read1
+        fastqc -o QC/ read2
+        multiqc QC/ -o QC
+    } &> logs/fastqc_logs.txt
+
+    conda deactivate multiqc
+fi
+
+# 2. Align to genome
+
+# Create Bowtie2Idk
+module load Bowtie2
+if [ ! -d Bowtie2Idx ]; then
+    mkdir Bowtie2Idx
+fi
+bowtie2-build reference Bowtie2IDx/reference.108
+
+# Create folder for alignment
+if [ ! -d Alignment ]; then
+    mkdir Alignment
+fi
+
+if [ ! -f Aligment/${read1name}.bam ]; then
+    {
+    bowtie2 -p cores \
+        --rg ID:$read1name \
+        --rg SM:$read1name \
+        --rg PL:ILLUMINA \
+        --rg LB:$read1name \
+        -x Bowtie2IDx/reference.108 \
+        -1 read1 \
+        -2 read2 |
+        samtools sort -o Aligment/${read1name}.bam -
+    } &> logs/read1name_alignment_logs.txt
+fi
+
+# 3. Mark Duplicates
+if [ ! -f Alignment/${read1name}.marked.bam ]; then
+    {
+        gatk --java-options "-Xmx10G" MarkDuplicates \
+                -I Alignment/${read1name}.bam \
+                -M QC/${read1name}.marked \
+                -O Alignment/${read1name}.marked.bam
+    } &> logs/read1name_marked_logs.txt
+fi
+
+# 4. Run Base Score Quality Recalibration
+if [ ! -f Alignment/${read1name}.recalib.bam ]; then 
+        {
+        gatk --java-options "-Xmx10G" BaseRecalibrator \
+                -I Alignment/${read1name}.marked.bam \
+                -R  $reference \
+                --known-sites ${known_sites} \
+                -O Alignment/${read1name}.table
+
+        gatk --java-options "-Xmx10G" ApplyBQSR \
+                -R $reference \
+                -I Alignment/${read1name}.marked.bam \
+                --bqsr-recal-file Alignment/${read1name}.table \
+                -O Alignment/${read1name}.recalib.bam
+        } &> logs/${read1name}_BSQR_logs.txt
+fi
+
+# Running Flagstat analysis
+if [ ! -f logs/${read1name}_alignment_flagstat.txt ]; then 
+        samtools flagstat Alignment/${read1name}.recalib.bam > logs/${read1name}_alignment_flagstat.txt
+fi
