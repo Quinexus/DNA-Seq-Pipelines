@@ -54,7 +54,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Ensure required arguments are provided
-if [[ -z $FASTQ_R1 || -z $FASTQ_R2 || -z $REFERENCE || -z $THREAD || -z $RAM || -z $KNOWN_VARIANTS ]]; then
+if [[ -z $FASTQ_R1 || -z $FASTQ_R2 || -z $REFERENCE || -z $THREADS || -z $RAM || -z $KNOWN_VARIANTS ]]; then
     usage
 fi
 
