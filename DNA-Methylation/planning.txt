@@ -1,9 +1,0 @@
-1. Raw .idat data
-2. QC probe signal detection
-3. Remove poor quality samples and probes
-4. Normalisation
-5. Data exploration, PCA/MDS plot for QC
-6. Further filtering of probes
-7. Probe-wise differential methylation analysis (e.g., limma)
-8. Differential methylation analysis of regions
-9. Further visualisation

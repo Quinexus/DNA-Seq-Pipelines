@@ -1,0 +1,40 @@
+Overview of ChIP-seq analysis
+1. Sequence reads
+2. Quality control - FASTQC
+3. Alignment to genome - BWA, BOWTIE -> BAM files
+4. Post-alignment processing - Samtools: remove duplicates, down-sampling
+5. Peak calling - MACS2 followed by QC/filter peaks
+5.5 Peak comparsion Differential blinding - Diffbind between groups (e.g. TF1 vs TF2); ChIPseeker; Bedtools
+6. Downsteam analysis
+    - Annotation of peaks (ChIPseeker)
+    - Motif discovery and enrichment (MEME suite)
+    - Multi-omics integration
+
+QC fastq files - using fastqc module
+Trim adapters if needed using 'cutadapt'
+    module load using anaconda3
+Sequence alignmnent to genome using Bowtie2
+    can do single end or paired end reads
+    output of alignment is SAM alignment files
+Remove duplicates and downsampling
+    convert SAM to BAM format - samtools view -S -b sample.sam > sample.bam
+    sort alignment with regard to their position in the reference genome - samtools sort sample.bam -o sample.sorted.bam
+    index bam file - samtools index sample.sorted.bam
+    remove PCR duplicates - samtools rmdup -s sample.sorted.bam sample.rmdup.bam
+        -s: remove duplicates for single-end reads
+        -S: treat paired-end reads and single-end reads
+    downsample the larger bam to match the small bam in the pair if needed, but peak calling methods may contain this function - samtools view -s 0.1 bamfile.bam > ten_percent_of_bamfile.bam
+PICARD suite to manipulate SAM/BAM
+    PICARD - A set of command line tools (in Java) for manipulating high-throughput sequencing (HTS) data and formats such as SAM/BAM/CRAM and VCF.
+    samtools flagstat sample.bam
+Peak calling using MACS2
+    using conda environment install macs2
+    output files
+        _peaks.broadPeak or _peaks.narrowPeak: BED6+4 or BED6+3 format file which contains the peak locations together with peak summit, pvalue and qvalue
+        _peaks.xls: a tabular file which contains information about called peaks. Additional information includes pileup and fold enrichment
+        _summits.bed: peak summits locations for every peak. To find the motifs at the binding sites, this file is recommended (only for narrowPeak)
+        _model.r: an R script which you can use to produce a PDF image about the model based on your data and cross-correlation plot
+        _control_lambda.bdg: bedGraph format for input sample
+        _treat_pileup.bdg: bedGraph format for treatment sample
+    IGVtools to inspect bedgraph and called peak files
+
