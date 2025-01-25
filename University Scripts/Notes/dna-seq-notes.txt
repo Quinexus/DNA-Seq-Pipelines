@@ -1,0 +1,123 @@
+DNA SEQUENCING PRACTICE PIPELINE
+
+notes from lecture:
+Step 1: QC FASTQ files
+- module fastqc: to generate QC metrics
+- load fastqc
+- run fastqc on raw files: fastqc -o destination/folder raw_fastq/folder/
+- use conda to activate multiqc: load environment, install multiqc using bioconda, activate enviroment, perform tasks, deactivate environment
+- run multiqc on files in destination/folder: multiqc destination/folder -o QC
+
+Step 2: Align to genome
+- module bowtie2: build to get human genome reference, creating BAM file
+- module samtools: sort alignments
+- generate an index for genome: bowtie2-build .fa output/folder
+- align to genome:
+    time bowtie2 -p 1 \
+        --rg read_group: name \
+        -x reference/genome \
+        -1 R1.fq.gz \
+        -2 R2.fq.gz |
+        samtools sort -o output.bam -
+    arguments for bowtie2 are: argument | description — | ———- -p | the number of cores to use (1 here, more will make it go faster) –rg XX | set a value for that read group -x | the reference index -1 | read one -2 | read two
+- \ cancels end of line command
+- | pipe
+- - input from pipe
+- viewing bam files: samtools view file.bam
+    -H = just header
+    -h = header + reads
+    -| head -n 3 - first 3 reads, default 10
+- statistics for bam files: samtools flagstat file.bam
+
+Step 3: Mark duplicates
+- module java: its java
+- module gatk: genome analysis toolkit, various functions
+    -MarkDuplicates
+    -BaseRecalibrator
+    -ApplyBQSR
+- mark duplicates: 
+    gatk --java-options "Xmx1G" MarkDuplicates \
+        -I input.bam \
+        -M QC_output \
+        -O marked.bam
+
+
+Step 4: Base Score Quality Recalibration
+build base recalibration:
+    gatk --java-options "Xmx1G" BaseRecalibrator \
+        -I input.bam \
+        -R reference.fa \
+        --known-sites variants.vcf \
+        -O output.table
+apply model:
+    gatk --java-options "Xmx1G" ApplyBQSR \
+        -R reference.fa \
+        -I input.bam \
+        --bqsr-recal-file output.table \
+        -O recalibrated.bam
+
+Step 5: Variant Calling
+- file VarScan.jar: to scan for files
+- module gatk Mutect2: variant calls for tumour and normal sample
+- running variant calling with varscan:
+    samtools mpileup \
+        -q minimum_alignment_score \
+        - exclude poorly aligned reads \
+        -f recalibrated.bam |
+    java -jar VarScan.jar mpileup2snp \
+        --min-coverage x \
+        --min-avg-qual x \
+        --min-read2 x \
+        --p-value x \
+        --min-var-freq x \
+        --strand-filter x \
+        --output-vcf 1 > output.vcf
+- using mutect2:
+    gatk Mutect2 \
+        -R reference.fa \
+        -I tumor.bam \
+        -I normal.bam \
+        -normal normal_sample_name \
+        -O somatic.vcf.gz
+
+    gatk FilterMutectCalls \
+        -R reference.fa \
+        -V somatic.vcf.gz \
+        -O filtered.vcf.gz
+
+
+Step 6: Variant Annotation
+- module annovar: for annotation
+- convert file to annovar acceptable format: 
+    convert2annovar.pl --format vcf4 \
+        output.vcf \
+        --includeinfo \
+        --filter PASS \
+        -- outfile outputpass.vcf
+- download databases using annovar: (databases: https://annovar.openbioinformatics.org/en/latest/user-guide/download)
+    annotation_variation.pl -buildver ReferenceVersion \
+        -downdb \
+        -webfrom annovar \
+        DatabaseName \
+        localStorageLocation
+- filtering out mutations
+    annotation_variation.pl -filter \
+        -dbtype db \
+        -buildver version \
+        -out output/folder \
+        -outputpass.vcf \
+        -filter_reference \
+        -maf 0.01 #filter condition
+        -score_threshold 0.01 #filter condition, dropping those existing in >1% population
+- using Refgene to check if variants exist in dbSNP or COSMIC and annotate these variants with their cytoband:
+    table_annovar.pl \
+        -buildver version \
+        -out output/file \
+        -filtered_reference \
+        -remove \
+        -otherinfo \
+        -protocol refgene,avsnp150,cosmic92_coding,cytoband \
+        -operation g,f,f,r -nastring
+
+Step 7: Variant Filtering
+- Using R
