@@ -13,7 +13,7 @@ set -o pipefall # fail on piped commands
 # Temp folder set up
 TEMP_DIR="seqtemp"
 if [ ! -d $TEMP_DIR ]; then
-    mkdir $TEMP_DIR
+    mkdir -p $TEMP_DIR
 fi
 cd $TEMP_DIR
 
