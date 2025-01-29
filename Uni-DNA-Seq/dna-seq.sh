@@ -4,6 +4,8 @@ set -e # exit if error
 
 mkdir -p DNA_SEQ
 cd DNA_SEQ
+
+# Hardcoded reference paths 
 cp -vR /data/teaching/bci_teaching/DNAseq/VarScan.v2.4.3.jar ./
 HUMANDB_PATH="/data/teaching/bci_teaching/DNAseq/Reference/humandb/"
 VARSCAN=VarScan.v2.4.3.jar
@@ -82,7 +84,7 @@ mkdir -p QC
 echo "Step 1: Quality Control"
 
 module load fastqc anaconda3
-conda create --name multiqc -c bioconda multiqc -y
+conda create --name multiqc -c bioconda multiqc -y # Not ideal to hardcode in conda environment
 
 if [ ! -f QC/multiqc_report.html ]; then
     conda activate multiqc

@@ -1,0 +1,7 @@
+rule all:
+    input:
+        "QC/multiqc_report.html",
+        "Alignment/{prefix}.recalib.bam",
+        "VCF/{prefix}.hg38_multianno.txt",
+        "filtered.csv"
+
