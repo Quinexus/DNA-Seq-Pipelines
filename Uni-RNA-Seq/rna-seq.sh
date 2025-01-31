@@ -92,7 +92,7 @@ rsem-calculate-expression --bam \
     ${PREFIX}_Quant
 
 
-# Step 5: R Analysis
+# Step 5: R Analysis # WILL NOT WORK
 
 # Input: READ_COUNTS
 # Output: read counts folder

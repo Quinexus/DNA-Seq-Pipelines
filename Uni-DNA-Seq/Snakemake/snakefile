@@ -1,0 +1,193 @@
+configfile: "config.yaml"
+
+rule all:
+    input:
+        "QC/multiqc_report.html",
+        expand("VCF/{prefix}_annotated.hg38_multianno.txt", prefix=config['prefix']),
+        expand("{prefix}_filtered.csv", prefix=config['prefix'])
+
+rule quality_control:
+    input:
+        read1=config['reads']['r1'],
+        read2=config['reads']['r2']
+    params:
+        threads=config['threads']
+    output:
+        "QC/multiqc_report.html"
+    shell:
+        """
+        module load fastqc
+        fastqc {input.read1} {input.read2} -o QC/ -t {params.threads}
+        multiqc QC/ -o QC
+        module unload fastqc
+        """
+
+rule read_alignment:
+    input:
+        read1=config['reads']['r1'],
+        read2=config['reads']['r2'],
+        bowtie_index=multiext(config['bowtie_index'],
+            ".1.bt2",
+            ".2.bt2",
+            ".3.bt2",
+            ".4.bt2",
+            ".rev.1.bt2",
+            ".rev.2.bt2"),
+    output:
+        "Alignment/{prefix}.aligned.bam"
+    params:
+        threads=config['threads'],
+        bowtie_index=config['bowtie_index']
+    shell:
+        """
+        module load bowtie2 samtools
+
+        bowtie2 -p {params.threads} \
+            --rg ID:{wildcards.prefix} \
+            --rg SM:{wildcards.prefix} \
+            --rg PL:ILLUMINA \
+            --rg LB:{wildcards.prefix} \
+            -x {params.bowtie_index} \
+            -1 {input.read1} \
+            -2 {input.read2} |
+            samtools sort -o {output} -
+        
+        module unload bowtie2 samtools
+        """
+
+rule mark_duplicates:
+    input:
+        "Alignment/{prefix}.aligned.bam"
+    output:
+        marked_bam="Alignment/{prefix}.marked.bam",
+        marked_file="QC/{prefix}.marked"
+    params:
+        ram=config['ram_usage']
+    shell:
+        """
+        module load gatk
+
+        gatk --java-options "-Xmx{params.ram}G" MarkDuplicates \
+            -I {input} \
+            -M {output.marked_file} \
+            -O {output.marked_bam}
+        
+        module unload gatk
+        """
+
+rule base_score_quality_recalibration:
+    input: 
+        marked_bam="Alignment/{prefix}.marked.bam",
+        reference=config['reference'],
+        known_variants=config['known_variants']
+    output:
+        recalib_table="Alignment/{prefix}.table",
+        recalib_bam="Alignment/{prefix}.recalib.bam"
+    params:
+        ram=config['ram_usage']
+    shell:
+        """
+        module load gatk
+
+        gatk --java-options "-Xmx{params.ram}G" BaseRecalibrator \
+            -I {input.marked_bam} \
+            -R {input.reference} \
+            --known-sites {input.known_variants} \
+            -O {output.recalib_table}
+        
+        gatk --java-options "-Xmx{params.ram}G" ApplyBQSR \
+            -R {input.reference} \
+            -I {input.marked_bam} \
+            --bqsr-recal-file {output.recalib_table} \
+            -O {output.recalib_bam}
+        
+        module unload gatk
+        """
+
+rule variant_calling:
+    input:
+        reference=config['reference'],
+        recalib_bam="Alignment/{prefix}.recalib.bam",
+        varscan=config['varscan']
+    output:
+        "VCF/{prefix}_called.vcf"
+    shell:
+        """
+        module load java samtools
+
+        samtools mpileup \
+            -q 20 \
+            -f {input.reference} \
+            {input.recalib_bam} |
+        java -jar {input.varscan} mpileup2snp \
+            --min-coverage 20 \
+            --min-avg-qual 20 \
+            --min-read2 4 \
+            --p-value 0.2 \
+            --min-var-freq 0.01 \
+            --strand-filter 1 \
+            --output-vcf 1 > {output}
+        
+        module unload java samtools
+        """
+
+rule annotate_variants:
+    input:
+        raw_vcf="VCF/{prefix}_called.vcf",
+        humandb=config['humandb_path']
+    params:
+        outpath="VCF/{prefix}_annotated",
+        outpath_1000g="VCF/{prefix}_annotated.hg38_ALL.sites.2015_08_filtered",
+        outpath_esp6500="VCF/{prefix}_annotated.hg38_esp6500siv2_all_filtered",
+    output:
+        pass_vcf="VCF/{prefix}_annotated.pass.vcf",
+        multianno_file="VCF/{prefix}_annotated.hg38_multianno.txt"
+    shell:
+        """
+        module load annovar
+
+        convert2annovar.pl --format vcf4 \
+            {input.raw_vcf} \
+            --includeinfo \
+            --filter PASS \
+            --outfile {output.pass_vcf}
+
+        annotate_variation.pl -filter \
+            -dbtype 1000g2015aug_all \
+            -buildver hg38 \
+            -out {params.outpath} \
+            {output.pass_vcf} \
+            {input.humandb} \
+            -maf 0.01
+
+        annotate_variation.pl -filter \
+            -dbtype esp6500siv2_all \
+            -buildver hg38 \
+            -out {params.outpath} \
+            {params.outpath_1000g} \
+            {input.humandb} \
+            -score_threshold 0.01
+
+        table_annovar.pl \
+            -buildver hg38 \
+            -out {params.outpath} \
+            {params.outpath_esp6500} \
+            {input.humandb} \
+            -remove \
+            -otherinfo \
+            -protocol refgene,avsnp150,cosmic92_coding,cytoband \
+            -operation g,f,f,r \
+            -nastring .
+        
+        module unload annovar
+        """
+
+rule filter_variants:
+    input:
+        "VCF/{prefix}_annotated.hg38_multianno.txt"
+    output:
+        "{prefix}_filtered.csv"
+    shell:
+        """
+        python3 dna-seq-filter.py {input}
+        """

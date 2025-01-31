@@ -4,6 +4,7 @@
 if (!require("tidyverse", quietly = TRUE)) {
   install.packages("tidyverse")
 }
+
 # parsing arguments
 args <- commandArgs(trailingOnly = TRUE)
 multianno_file <- args[1]
@@ -19,7 +20,7 @@ allele_counts <- str_split(annotated_variants$sample, ":") %>%
   setNames(headings) %>%
   mutate(., FREQ = gsub("%", "", FREQ) %>% as.numeric())
 
-annotated_variants <- cbind(annotated_variants, AlleleCounts)
+annotated_variants <- cbind(annotated_variants, allele_counts)
 separate(annotated_variants, sample, into = headings, sep = ":")
 
 # filtering based on exonic variants + filtering out synonymous SNVs

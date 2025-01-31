@@ -1,0 +1,19 @@
+# Reads
+prefix: ["tumour"]
+reads:
+  r1: "FASTQ_Raw/tumour_R1.fq.gz"
+  r2: "FASTQ_Raw/tumour_R2.fq.gz"
+
+# Parameters
+threads: 15
+ram_usage: 8
+
+# Reference Files
+bowtie_index: "/data/teaching/bci_teaching/DNAseq/Reference/Bowtie2Idx/GRCh38.108.chr17"
+reference: "/data/teaching/bci_teaching/DNAseq/Reference/Homo_sapiens.GRCh38.108.dna.chromosome.17.fa"
+known_variants: "/data/teaching/bci_teaching/DNAseq/Reference/gatkResources/resources_broad_hg38_v0_1000G_omni2.5.hg38.noCHR.vcf"
+humandb_path: "/data/teaching/bci_teaching/DNAseq/Reference/humandb/"
+
+# Tools
+varscan_location: "/data/teaching/bci_teaching/DNAseq/VarScan.v2.4.3.jar"
+varscan: "./VarScan.v2.4.3.jar"

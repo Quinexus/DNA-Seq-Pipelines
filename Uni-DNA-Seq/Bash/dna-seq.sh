@@ -7,12 +7,15 @@ cd DNA_SEQ
 
 # Hardcoded reference paths 
 cp -vR /data/teaching/bci_teaching/DNAseq/VarScan.v2.4.3.jar ./
+BOWTIE_INDEX=/data/teaching/bci_teaching/DNAseq/Reference/Bowtie2Idx/GRCh38.108.chr17
+REFERENCE=/data/teaching/bci_teaching/DNAseq/Reference/Homo_sapiens.GRCh38.108.dna.chromosome.17.fa
+KNOWN_VARIANTS=/data/teaching/bci_teaching/DNAseq/Reference/gatkResources/resources_broad_hg38_v0_1000G_omni2.5.hg38.noCHR.vcf
 HUMANDB_PATH="/data/teaching/bci_teaching/DNAseq/Reference/humandb/"
-VARSCAN=VarScan.v2.4.3.jar
+VARSCAN="VarScan.v2.4.3.jar"
 
 # Default message
 usage() {
-    echo $0 -r <FASTQ_R1> -s <FASTQ_R2> -t <REFERENCE_BOWTIE> -u <REFERENCE> -v <THREADS> -x <KNOWN_VARIANTS>
+    echo $0 "-r <FASTQ_R1> -s <FASTQ_R2> -v <THREADS> -w <RAM_USAGE>"
     exit 1
 }
 
@@ -27,24 +30,12 @@ while [[ $# -gt 0 ]]; do
             FASTQ_R2=$2
             shift 2
             ;;
-        -t|--reference_bowtie)
-            REFERENCE_BOWTIE=$2
-            shift 2
-            ;;
-        -u|--reference)
-            REFERENCE=$2
-            shift 2
-            ;;
-        -u|--threads)
+        -v|--threads)
             THREADS=$2
             shift 2
             ;;
-        -v|--ram_usage)
+        -w|--ram_usage)
             RAM=$2
-            shift 2
-            ;;
-        -w|--known_variants)
-            KNOWN_VARIANTS=$2
             shift 2
             ;;
         *)
@@ -54,7 +45,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Ensure required arguments are provided
-if [[ -z $FASTQ_R1 || -z $FASTQ_R2 || -z $REFERENCE || -z $THREADS || -z $RAM || -z $KNOWN_VARIANTS || -z $REFERENCE_BOWTIE ]]; then
+if [[ -z $FASTQ_R1 || -z $FASTQ_R2 || -z $THREADS || -z $RAM ]]; then
     usage
 fi
 
@@ -81,54 +72,61 @@ mkdir -p QC
 ## Input: FASTQ_R1 FASTQ_R2
 ## Output: multiqc_report.html
 
-echo "Step 1: Quality Control"
-
-module load fastqc anaconda3
-conda create --name multiqc -c bioconda multiqc -y # Not ideal to hardcode in conda environment
-
 if [ ! -f QC/multiqc_report.html ]; then
+    echo "Step 1: Quality Control"
+
+    module load fastqc anaconda3
+    conda create --name multiqc -c bioconda multiqc -y # Not ideal to hardcode in conda environment
+
     conda activate multiqc
     fastqc $FASTQ_R1 $FASTQ_R2 -o QC/ -t $THREADS
     multiqc QC/ -o QC
+
     conda deactivate
+    module unload fastqc
 fi
-module unload fastqc
 
 # Step 2: Read Alignment
 
-## Input: FASTQ_R1, FASTQ_R2, REFERENCE_BOWTIE
+## Input: FASTQ_R1, FASTQ_R2, BOWTIE_INDEX
 ## Output: BAM_FILE
 
-echo "Step 2: Read Alignment"
 mkdir -p Alignment
 
-module load bowtie2
 if [ ! -f $BAM_FILE ]; then
+    echo "Step 2: Read Alignment"
+    module load bowtie2 samtools
+
     bowtie2 -p $THREADS \
         --rg ID:$PREFIX \
         --rg SM:$PREFIX \
         --rg PL:ILLUMINA \
         --rg LB:$PREFIX \
-        -x $REFERENCE_BOWTIE \
+        -x $BOWTIE_INDEX \
         -1 $FASTQ_R1 \
         -2 $FASTQ_R2 |
         samtools sort -o $BAM_FILE -
+    
+    module unload bowtie2 samtools
 fi
-module unload bowtie2
+
 
 # Step 3: Mark Duplicates
 
 ## Input: BAM_FILE
 ## Output: MARKED_BAM (also MARKED_FILE)
 
-echo "Step 3: Mark Duplicates"
-
-module load gatk
 if [ ! -f $MARKED_BAM ]; then
+    echo "Step 3: Mark Duplicates"
+
+    module load gatk
+
         gatk --java-options "-Xmx${RAM}G" MarkDuplicates \
                 -I $BAM_FILE \
                 -M $MARKED_FILE \
                 -O $MARKED_BAM
+    
+    module unload gatk
 fi
 
 # Step 4: Base Score Quality Recalibration
@@ -136,9 +134,12 @@ fi
 ## Input: MARKED_BAM, REFERENCE, KNOWN_VARIANTS
 ## Output: $RECALIB_BAM (also $RECALIB_TABLE)
 
-echo "Step 4: Base Score Quality Recalibration"
-
 if [ ! -f $RECALIB_BAM ]; then 
+
+    echo "Step 4: Base Score Quality Recalibration"
+
+    module load gatk
+
         gatk --java-options "-Xmx${RAM}G" BaseRecalibrator \
                 -I $MARKED_BAM \
                 -R  $REFERENCE \
@@ -149,24 +150,27 @@ if [ ! -f $RECALIB_BAM ]; then
                 -I $MARKED_BAM \
                 --bqsr-recal-file $RECALIB_TABLE \
                 -O $RECALIB_BAM
+    
+    module unload gatk
 fi
-module unload gatk
+
 
 # Step 5: Variant Calling
 
 ## Input: REFERENCE, RECALIB_BAM
 ## Output: RAW_VCF
 
-echo "Step 5: Variant Calling"
 mkdir -p VCF
-
-module load java
 if [ ! -f $RAW_VCF ]; then
+    echo "Step 5: Variant Calling"
+
+    module load java samtools
+
     samtools mpileup \
         -q 20 \
         -f $REFERENCE \
         $RECALIB_BAM |
-    java -jar VARSCAN mpileup2snp \
+    java -jar $VARSCAN mpileup2snp \
         --min-coverage 20 \
         --min-avg-qual 20 \
         --min-read2 4 \
@@ -174,16 +178,20 @@ if [ ! -f $RAW_VCF ]; then
         --min-var-freq 0.01 \
         --strand-filter 1 \
         --output-vcf 1 > $RAW_VCF
+
+    module unload java samtools
 fi
 
 # Step 6: Annotate Variants
-echo "Step 6: Annotate Variants"
 
 ## Input: RAW_VCF, HUMANDB_PATH
 ## Output: MULTIANNO (+ other filtered vcfs)
 
-module load annovar
-if [ ! -f $PASS_VCF ]; then
+if [ ! -f $MULTIANNO ]; then
+    echo "Step 6: Annotate Variants"
+
+    module load annovar
+
     convert2annovar.pl --format vcf4 \
         $RAW_VCF \
         --includeinfo \
@@ -220,10 +228,14 @@ if [ ! -f $PASS_VCF ]; then
         -operation g,f,f,r \
         -nastring .
 
-# Step 7: Filter out variants with variant allele frequency <10% using R script 
+fi
+
+# Step 7: Filter out variants with variant allele frequency <10% using python script 
+# NEEDS CONDA ENVIRONMENT!
 
 ## Input: MULTIANNO
 ## Output: filtered.csv
 
-module load R
-Rscript dna-seq-filter.R $MULTIANNO
+if [ ! -f "${PREFIX}_filtered.csv" ]; then
+    python3 dna-seq-filter.py $MULTIANNO
+fi
