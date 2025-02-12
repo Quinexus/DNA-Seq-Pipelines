@@ -41,13 +41,13 @@ The following configuration parameters should be adjusted before running the abo
 - Pass in Read Details and Parameters as arguments
 - Hardcoded References and tools hardcoded into shell script
 
-## Software and Versions
+## Software and Versions (based on QMUL HPC Apocrita)
 
 - **FastQC**: 0.11.9
 - **BWA**: 0.7.17
-- **Samtools**: 1.10
+- **Samtools**: 1.19.2
 - **GATK**: 4.5.0.0
-- **Ensembl VEP**: 104
+- **Ensembl VEP**: 96
 
 
 ## Job Submission

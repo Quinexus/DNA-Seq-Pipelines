@@ -76,12 +76,11 @@ The following configuration parameters should be adjusted before running the abo
 ## Software and Versions (based on QMUL HPC Apocrita)
 
 - **FastQC**: 0.11.9
-- **MultiQC**: 1.9
-- **Bowtie2**: 2.4.2
-- **Samtools**: 1.10
+- **Bowtie2**: 2.4.5
+- **Samtools**: 1.19.2
 - **GATK**: 4.5.0.0
 - **VarScan**: 2.4.3
-- **Annovar**: 2019Oct24
+- **Annovar**: 2018Apr16
 
 ### Conda Environment
 
