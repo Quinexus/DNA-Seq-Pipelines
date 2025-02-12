@@ -1,0 +1,22 @@
+---
+title: "TP53_Analysis"
+author: "Jovan Xavier"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+
+genes <- read.delim("snpEff_genes.txt", skip = 1)
+
+tp53 <- genes %>% filter(X.GeneName == "TP53")
+tp53
+
+annotations <- read.delim("VCF/tumour.annotated.vcf.gz", skip = 75)
+TP53_annotations <- annotations %>%
+  filter(FILTER == "PASS") %>%
+  filter(grepl("TP53", INFO))
+
+TP53_annotations
+```
+

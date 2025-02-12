@@ -51,6 +51,7 @@ PREFIX=${BASENAME_R1%%_*}
 BAM_FILE=Alignment/${PREFIX}.bam
 MARKED_FILE=QC/${PREFIX}.marked
 MARKED_BAM=Alignment/${PREFIX}.marked.bam
+R2_FASTQC="QC/${PREFIX}_R2_fastqc.html"
 RECALIB_BAM=Alignment/${PREFIX}.recalib.bam
 RAW_VCF=VCF/${PREFIX}.raw.vcf.gz
 FILTERED_VCF=VCF/${PREFIX}.filtered.vcf.gz
@@ -63,20 +64,28 @@ cd DNA-Seq-${PREFIX}
 mkdir -p QC Alignment VCF
 
 # Step -1: Index reference genome
-module load bwa
-bwa index $REFERENCE
-module unload bwa
+if [[ ! -f "${REFERENCE}.fai" && ! -f "${REFERENCE}.dict" ]]; then
+  module load bwa samtools gatk
+  bwa index $REFERENCE
+  samtools faidx $REFERENCE
+  samtools dict $REFERENCE
+  gatk CreateSequenceDictionary -R $REFERENCE
+  module unload bwa samtools gatk
+fi
 
 # Step 0: Run Quality Control
-module load fastqc
-fastqc $FASTQ_R1 $FASTQ_R2 -o QC/
-module unload fastqc
+if [ ! -f $R2_FASTQC ]; then
+  module load fastqc
+  fastqc $FASTQ_R1 $FASTQ_R2 -o QC/
+  module unload fastqc
+fi
 
 # Step 1: Align reads
 if [ ! -f $BAM_FILE ]; then
   module load bwa samtools
 
   bwa mem \
+    -R "@RG\tID:${PREFIX}\tSM:${PREFIX}\tPL:ILLUMINA\tLB:${PREFIX}\tPU:${PREFIX}_unit" \
     $REFERENCE \
     $FASTQ_R1 \
     $FASTQ_R2 |

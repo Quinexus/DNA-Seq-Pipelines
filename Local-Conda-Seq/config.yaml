@@ -1,0 +1,13 @@
+# Reads
+prefix: "tumour"
+reads:
+  r1: "FASTQ_Raw/tumour_R1.fq.gz"
+  r2: "FASTQ_Raw/tumour_R2.fq.gz"
+
+# Parameters
+threads: 6
+ram_usage: 8
+
+# Reference Files
+reference: "Reference/Homo_sapiens.GRCh38.108.dna.chromosome.17.fa"
+known_variants: "Reference/resources_broad_hg38_v0_1000G_omni2.5.hg38.noCHR.vcf"

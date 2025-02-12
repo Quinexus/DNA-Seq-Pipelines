@@ -1,0 +1,36 @@
+---
+title: "Alternative DNA-Seq Analysis"
+author: "Jovan Xavier"
+output: html_document
+---
+
+Outputs from ensembl-vep copied from hpc into local machine and stored in folder Outputs
+
+Loading vcf file
+
+```{r}
+library(tidyverse)
+
+annotations <- read.delim("Output/tumour.annotated.vcf", skip = 69)
+
+relevant_mutations <- c(
+  "frameshift_variant",
+  "stop_gained",
+  "stop_lost",
+  "start_lost",
+  "splice_acceptor_variant",
+  "splice_donor_variant",
+  "missense_variant",
+  "inframe_insertion",
+  "inframe_deletion",
+  "splice_region_variant"
+)
+
+
+TP53_mutations <- annotations %>%
+  filter(grepl("TP53", Extra)) %>%  # Filter for TP53 in 'Extra' column
+  filter(grepl(paste(relevant_mutations, collapse = "|"), Consequence))
+
+TP53_mutations
+```
+

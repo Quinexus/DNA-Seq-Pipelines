@@ -1,50 +1,24 @@
 # Omics Pipelines
 
-Omics pipelines for analysing raw sequencing files
+Omics pipelines for analysing raw sequencing files.
 
-## 1) DNA-Seq
+Please check individual folders for more details on how to use.
 
-- Inputs:
-    - 2 paired reads (with extension .fastq.gz)
-    - Number of threads
-    - Allocated ram
-- Hardcoded references/inputs
-    - VarScan jar file
-    - Bowtie Index
-    - Known-variants
-    - HumanDB (for annotation)
-- Outputs
-    - mutliqc analysis
-    - recalibrated bam
-    - multianno txt file
-    - csv of filtered variants
+## Overview
 
-Pipelines written in bash, nextflow and snakemake
+|   | DNA-Seq | Alt-DNA-Seq | Local-Conda-Seq | RNA-Seq |
+|---|---|---|---|---|
+| Working? | Yes | Yes | Yes | No |
+| Description | DNA seq analysis pipeline | Alternative DNA seq analysis pipeline | DNA Seq pipeline entirely on conda env able to run on apple silicon mac | RNA seq analysis pipeline
+| Tested | On HPC | On HPC | On M3 Macbook air | Not tested |
+| Conda env | For multiqc | For multiqc | Yes | No |
+| Workflow | bash, nextflow, snakemake | bash | snakemake | bash |
 
-- Steps
-    1. Quality Control - modules needed fastqc, anaconda3
-    2. Read Alignment - modules needed bowtie2, samtools
-    3. Marked Duplicates - modules needed gatk
-    4. Base Score Quality Recalibration - modules needed gatk
-    5. Variant Calling - modules needed java samtools + VarScan
-    6. Annotated Variants - modules needed annovar
-    7. Filter Variants - modules needed anaconda3 (any conda environment with panda)
+## Modules Used
 
-## 2) RNA-Seq
-
-- Under Construction
-- Untested
-- Steps
-    1. Quality Control
-    2. Adapter Trimming
-    3. STAR Alignment
-    4. Read Counting
-    5. R Analysis
-
-## 3) Alternative DNA-Seq
-
-- Under Construction
-- Similar steps as DNA-Seq but using different modules
-    - Variant Calling using gatk HaplotypeCaller
-    - Variant Filtering using gatk VariantFiltration
-    - Variant Annotation using Ensemble vep
+|   | DNA-Seq | Alt-DNA-Seq | Local-Conda-Seq | RNA-Seq |
+|---|---|---|---|---|
+| Alignment | Bowtie2 | Bwa | Bwa | Star |
+| Variant Calling | VarScan | GATK Mutect2 | GATK Mutect2 | n/a |
+| Variant Annotation | Annovar | Ensembl-VEP | snpEff | n/a |
+| Analysis | Python | Rmd | Rmd | n/a |

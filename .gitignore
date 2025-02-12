@@ -1,1 +1,16 @@
 .DS_store
+
+.snakemake/
+
+Alt-DNA-Seq/Output
+
+Local-Conda-Seq/FASTQ_Raw
+Local-Conda-Seq/Reference
+
+Local-Conda-Seq/VCF
+Local-Conda-Seq/Alignment
+Local-Conda-Seq/QC
+Local-Conda-Seq/snpEff*
+
+
+Alt-DNA-Seq/Output/tumour.annotated.vcf
