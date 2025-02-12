@@ -4,8 +4,6 @@ This folder contains scripts and workflows for running a DNA-Seq analysis pipeli
 
 The pipeline can be executed using different workflow managers including Bash, Snakemake, and Nextflow.
 
-This 
-
 ## Pipeline Steps
 
 1. **Quality Control**: Perform quality control on raw FASTQ files using FastQC and MultiQC.
